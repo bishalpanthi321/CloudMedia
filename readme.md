@@ -1,4 +1,4 @@
-# COMP4651 Media Tool Webapp
+# Media Tool Webapp
 
 
 ![App Preview 1](preview_1.png)
