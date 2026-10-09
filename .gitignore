@@ -1,0 +1,64 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+.env.aws
+*.pem
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Backend local artifacts
+backend/.env
+backend/.coverage
+backend/htmlcov/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+
+# Node/Next
+node_modules/
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+web/coverage/
+web/.vercel/
+web/*.tsbuildinfo
+
+# Local runtime data
+backend/uploads/
+backend/outputs/
+media/
+local_storage/
+
+# Docker
+*.pid
+
+#k8s
+secret.yaml
+aws-creds-secret.yaml
+
+# aws installation 
+aws/

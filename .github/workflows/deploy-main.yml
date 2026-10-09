@@ -1,0 +1,162 @@
+name: Deploy Main
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  ECR_API_REPOSITORY: media-tool-api
+  ECR_WORKER_REPOSITORY: media-tool-worker
+  ECR_FRONTEND_REPOSITORY: media-tool-frontend
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-push:
+    name: Build And Push Images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate AWS role secret
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+        run: |
+          if [[ -z "$AWS_ROLE_ARN" ]]; then
+            echo "::error::Missing secret AWS_GITHUB_ACTIONS_ROLE_ARN."
+            echo "::error::Fix: Set repository/org secret AWS_GITHUB_ACTIONS_ROLE_ARN to a full IAM role ARN, for example: arn:aws:iam::123456789012:role/YourGitHubActionsRole"
+            exit 1
+          fi
+
+          if [[ ! "$AWS_ROLE_ARN" =~ ^arn:aws:iam::[0-9]{12}:role/.+ ]]; then
+            echo "::error::Invalid AWS_GITHUB_ACTIONS_ROLE_ARN value: '$AWS_ROLE_ARN'"
+            echo "::error::Cause: configure-aws-credentials received a role name instead of a role ARN."
+            echo "::error::Fix: Use full ARN format arn:aws:iam::123456789012:role/YourGitHubActionsRole"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend once and push to API + worker repos
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_API_REPOSITORY }}:${{ env.IMAGE_TAG }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_API_REPOSITORY }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_WORKER_REPOSITORY }}:${{ env.IMAGE_TAG }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_WORKER_REPOSITORY }}:latest
+          cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_API_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_API_REPOSITORY }}:buildcache,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:${{ env.IMAGE_TAG }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:latest
+          cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPOSITORY }}:buildcache,mode=max
+
+  redeploy-k8s:
+    name: Redeploy Kubernetes
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    env:
+      EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME || 'media-tool' }}
+      K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'media-tool' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate AWS role secret
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+        run: |
+          if [[ -z "$AWS_ROLE_ARN" ]]; then
+            echo "::error::Missing secret AWS_GITHUB_ACTIONS_ROLE_ARN."
+            echo "::error::Fix: Set repository/org secret AWS_GITHUB_ACTIONS_ROLE_ARN to a full IAM role ARN, for example: arn:aws:iam::123456789012:role/YourGitHubActionsRole"
+            exit 1
+          fi
+
+          if [[ ! "$AWS_ROLE_ARN" =~ ^arn:aws:iam::[0-9]{12}:role/.+ ]]; then
+            echo "::error::Invalid AWS_GITHUB_ACTIONS_ROLE_ARN value: '$AWS_ROLE_ARN'"
+            echo "::error::Cause: configure-aws-credentials received a role name instead of a role ARN."
+            echo "::error::Fix: Use full ARN format arn:aws:iam::123456789012:role/YourGitHubActionsRole"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME"
+
+      - name: Apply Kubernetes manifests
+        run: kubectl apply -f infra/k8s
+
+      - name: Update deployment images
+        run: |
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+          kubectl -n "$K8S_NAMESPACE" set image deployment/api api="$ECR_REGISTRY/$ECR_API_REPOSITORY:$IMAGE_TAG"
+          kubectl -n "$K8S_NAMESPACE" set image deployment/worker worker="$ECR_REGISTRY/$ECR_WORKER_REPOSITORY:$IMAGE_TAG"
+          kubectl -n "$K8S_NAMESPACE" set image deployment/frontend frontend="$ECR_REGISTRY/$ECR_FRONTEND_REPOSITORY:$IMAGE_TAG"
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/api --timeout=300s
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/worker --timeout=300s
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/frontend --timeout=300s
+
+      - name: Smoke test API from cluster
+        run: |
+          kubectl -n "$K8S_NAMESPACE" run smoke-api \
+            --rm -i --restart=Never \
+            --image=curlimages/curl:8.7.1 \
+            --command -- sh -lc "curl -fsS http://api.$K8S_NAMESPACE.svc.cluster.local:8000/health"
+
+      - name: Smoke test frontend public endpoint
+        run: |
+          FRONTEND_HOST=$(kubectl -n "$K8S_NAMESPACE" get svc frontend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          if [[ -z "$FRONTEND_HOST" ]]; then
+            FRONTEND_HOST=$(kubectl -n "$K8S_NAMESPACE" get svc frontend -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          fi
+
+          if [[ -z "$FRONTEND_HOST" ]]; then
+            echo "Frontend service has no external endpoint yet"
+            exit 1
+          fi
+
+          echo "Checking frontend endpoint: http://$FRONTEND_HOST"
+          curl -fsSI --retry 10 --retry-delay 5 --retry-connrefused "http://$FRONTEND_HOST"

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: media-tool-config
+  namespace: media-tool
+data:
+  APP_ENV: "production"
+  QUEUE_NAME: "media-queue"
+  MAX_IMAGE_WIDTH: "1920"
+  DEFAULT_WATERMARK: "Media Tool"
+  JWT_ALGORITHM: "HS256"
+  AWS_DEFAULT_REGION: "ap-southeast-2"
+  AWS_S3_BUCKET_NAME: "media-app-storage-bucket-comp4651"
+  API_CORS_ORIGINS: '["http://localhost:3000","https://REPLACE_ME"]'

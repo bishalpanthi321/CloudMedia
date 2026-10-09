@@ -1,0 +1,36 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '24px'}, 'themeCSS': '.participant text, .actor text, .labelText { font-size: 26px !important; font-weight: 600; } .messageText, .noteText { font-size: 24px !important; }', 'sequence': {'diagramMarginX': 18, 'diagramMarginY': 12, 'actorMargin': 24, 'width': 170, 'height': 40, 'boxMargin': 8, 'boxTextMargin': 8, 'noteMargin': 10, 'messageMargin': 20}}}%%
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant F as Frontend
+    participant A as API
+    participant S as S3
+    participant D as DB
+    participant R as Queue
+    participant W as Worker
+
+    Note over U,F: Phase 1 - Upload
+    U->>F: Select media and options
+    F->>A: Request upload URL
+    A-->>F: Return URL and input_key
+    F->>S: Upload file
+
+    Note over F,A: Phase 2 - Queue Job
+    F->>A: Create job (input_key + options)
+    A->>D: Save queued job row
+    A->>R: Enqueue job id
+    A-->>F: Return 202 and job id
+
+    Note over R,W: Phase 3 - Process in Background
+    W->>R: Dequeue job id
+    W->>S: Download input media
+    W->>W: Process (Pillow or FFmpeg)
+    W->>S: Upload processed output
+    W->>D: Update status (completed or failed)
+
+    Note over F,A: Phase 4 - Retrieve Result
+    F->>A: Poll job status
+    A->>D: Read job state
+    A->>S: Build output URL
+    A-->>F: Return status and output_url
+    F-->>U: Show processed result

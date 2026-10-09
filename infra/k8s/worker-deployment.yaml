@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: media-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      volumes:
+      - name: media-data
+        emptyDir: {}
+      containers:
+      - name: worker
+        image: 360411403498.dkr.ecr.ap-southeast-2.amazonaws.com/media-tool-worker:latest
+        command: ["python", "-m", "app.worker.runner"]
+        volumeMounts:
+        - name: media-data
+          mountPath: /data/media
+        envFrom:
+        - configMapRef:
+            name: media-tool-config
+        - secretRef:
+            name: media-tool-secrets
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: media-tool-aws-creds
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: media-tool-aws-creds
+              key: AWS_SECRET_ACCESS_KEY

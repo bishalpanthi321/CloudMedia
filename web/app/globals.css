@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0f1f1a;
+  --bg-elev: #153025;
+  --panel: rgba(255, 248, 236, 0.93);
+  --ink: #1a1e1f;
+  --accent: #ff7f2a;
+  --accent-soft: #ffd7ba;
+  --ok: #0f8c55;
+  --warn: #e06d1b;
+  --muted: #4a5651;
+}
+
+@theme inline {
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-plex-mono);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% 15%, #ffd78455, transparent 22%),
+    radial-gradient(circle at 85% 20%, #ff9d5e66, transparent 25%),
+    linear-gradient(155deg, var(--bg) 0%, #0c1713 52%, var(--bg-elev) 100%);
+  color: var(--ink);
+  font-family: var(--font-space-grotesk), sans-serif;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

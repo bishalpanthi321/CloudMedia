@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: media-tool-postgres
+    environment:
+      POSTGRES_DB: media_tool
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "33003:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d media_tool"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - media_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: media-tool-redis
+    ports:
+      - "33004:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - media_net
+
+  api:
+    build:
+      context: ./backend
+    container_name: media-tool-api
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "33002:8000"
+    volumes:
+      - ./local_storage:/data/media
+    networks:
+      - media_net
+
+  worker:
+    build:
+      context: ./backend
+    container_name: media-tool-worker
+    command: ["python", "-m", "app.worker.runner"]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./local_storage:/data/media
+    networks:
+      - media_net
+
+  frontend:
+    build:
+      context: ./web
+    container_name: media-tool-frontend
+    env_file:
+      - .env
+    depends_on:
+      - api
+    ports:
+      - "33001:3000"
+    networks:
+      - media_net
+
+volumes:
+  postgres_data:
+
+networks:
+  media_net:
+    driver: bridge
