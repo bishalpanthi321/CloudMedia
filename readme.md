@@ -1,17 +1,9 @@
 # COMP4651 Media Tool Webapp
 
-## Made by Group 8
-- Pau Pérez Roy (21290074)
-- Muhammad Shaheer Ghaznavi (20996762)
-- POON Yiu Yeung (20855085)
-- BISHAL PANTHI (21290646)
 
 ![App Preview 1](preview_1.png)
 
-# Project Report and Presentation
 
-- [Download the final report (PDF)](COMP_4651_%20Final_Report.pdf)
-- [Watch the video presentation](https://hkustconnect-my.sharepoint.com/:v:/g/personal/pperezroy_connect_ust_hk/IQDlqoZeSXoER7C-EJJH3MvkAaaJTWkMUSCSdJxhN4GuIPc?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJPbmVEcml2ZUZvckJ1c2luZXNzIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXciLCJyZWZlcnJhbFZpZXciOiJNeUZpbGVzTGlua0NvcHkifX0&e=pHh8nH)
 
 # Implementation Flow
 
@@ -53,9 +45,8 @@ sequenceDiagram
 	F-->>U: Show processed result
 ```
 
-# Work Distribution
 
-## POON Yiu Yeung
+
 **Core Responsibilities:**
 * Led the architectural design for the decoupled Next.js frontend and FastAPI backend, Redis Queue Worker.
 * Developed the core asynchronous worker logic (RQ/Redis), Auth module and implemented storage models for users and jobs.
@@ -63,35 +54,22 @@ sequenceDiagram
 * Configured the baseline containerization (`Dockerfile` and local `docker-compose.yml`).
 * Performed debugging and testing to improve system reliability and ensured smooth user experience.
 * Contributed to the project report sections on implementation and evaluation.
-
-## Pau Pérez Roy
-**Core Responsibilities:**
 * Provisioned the AWS cloud environment and established the foundational infrastructure.
 * Designed and implemented Identity and Access Management (IAM) policies to ensure secure, least-privilege access for the application.
 * Configured the Amazon S3 buckets with appropriate CORS and access rules for media storage.
 * Managed the Kubernetes deployment.
 * Prepared and presented the video demo (alongside Shaheer).
-
-## BISHAL PANTHI
-**Core Responsibilities:**
 * Managed the migration of the application from a local environment to the cloud infrastructure.
 * Implemented the adapter patterns to connect the backend API and worker to the external AWS resources (RDS and S3).
 * Managed the production environment variables (`.env.aws`) and the cloud-specific Docker Compose configurations.
 * Worked on Project Report on project overview, Technology Stack & System Design + Conclusion
 * Configured Amazon EKS cluster using eksctl, resolving IAM permission boundaries and account-level service restrictions
 * Managed the container image pipeline end to end building, tagging, and pushing all three Docker images (frontend, API, worker) to Amazon ECR
-
-
-
-## Muhammad Shaheer Ghaznavi
-**Core Responsibilities:**
 * Set up the EKS environment with a node group and worker nodes; co-managed the Kubernetes deployment and debugged cloud deployment issues.
 * Optimized the media processing pipeline for better performance and error handling.
 * Refactored core application logic to add extended functionality and improve the user experience on the frontend.
 * Set up the GitHub to AWS CI/CD pipeline.
 * Prepared and presented the video demo (alongside Pau).
-
-# AWS Deployment Access
 Current frontend URL (EKS LoadBalancer):
 - http://a266dcd729d20463196b3dbfb6452e63-1911714493.ap-southeast-2.elb.amazonaws.com
 
